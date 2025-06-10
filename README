@@ -15,6 +15,6 @@ GUI Usage
 
 Create an app with pyinstaller
 
-1. pyinstaller --windowed --onefile ocr_compact.py
+1. pyinstaller --windowed --onefile -icon=OCR-Compact.icns ocr_compact.py
 2. cp dist/ocr_compact.app /Applications
 
