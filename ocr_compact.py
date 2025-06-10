@@ -11,10 +11,9 @@ import fitz  # PyMuPDF
 from PIL import Image
 
 # === SETTINGS ===
-# Path to Tesseract executable (adjust if needed)
 TESSERACT_CMD = 'tesseract'
-# Ghostscript command
 GHOSTSCRIPT_CMD = 'gs'
+TARGET_DPI = 300  # Desired DPI for OCR
 
 # === PDF TOOLS ===
 def ocr_pdf(input_pdf, output_pdf):
@@ -22,12 +21,16 @@ def ocr_pdf(input_pdf, output_pdf):
     doc = fitz.open(input_pdf)
     pdf_writer = fitz.open()
 
+    # Calculate zoom factor to achieve target DPI
+    zoom = TARGET_DPI / 72  # 72 is the default PDF point size
+    mat = fitz.Matrix(zoom, zoom)
+
     for page_num in range(len(doc)):
         page = doc[page_num]
-        pix = page.get_pixmap()
+        pix = page.get_pixmap(matrix=mat)
         img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
 
-        # OCR the image
+        # OCR the image to searchable PDF
         text = pytesseract.image_to_pdf_or_hocr(img, extension='pdf')
 
         # Save as new PDF page
@@ -43,7 +46,14 @@ def shrink_pdf(input_pdf, output_pdf):
         GHOSTSCRIPT_CMD,
         "-sDEVICE=pdfwrite",
         "-dCompatibilityLevel=1.4",
-        "-dPDFSETTINGS=/screen",
+        "-dPDFSETTINGS=/ebook",             # Less aggressive than /screen
+        "-dAutoRotatePages=/None",          # Prevent rotation issues
+        "-dColorImageDownsampleType=/Bicubic",
+        "-dColorImageResolution=150",
+        "-dGrayImageDownsampleType=/Bicubic",
+        "-dGrayImageResolution=150",
+        "-dMonoImageDownsampleType=/Subsample",
+        "-dMonoImageResolution=300",
         "-dNOPAUSE",
         "-dQUIET",
         "-dBATCH",
@@ -81,7 +91,6 @@ def gui_mode():
         action = action_var.get()
         overwrite = overwrite_var.get()
         process_pdfs(files, action, overwrite)
-
         messagebox.showinfo("Done", "Processing complete!")
 
     def add_files():
@@ -92,8 +101,8 @@ def gui_mode():
     root = tk.Tk()
     root.title("PDF Tool")
 
-    # Action toggle
-    action_var = tk.StringVar(value='both')
+    # Action toggle (Default to OCR only!)
+    action_var = tk.StringVar(value='ocr')
     tk.Label(root, text="Select Action:").pack()
     for text, val in [("OCR", "ocr"), ("Shrink", "shrink"), ("Both", "both")]:
         tk.Radiobutton(root, text=text, variable=action_var, value=val).pack(anchor='w')
@@ -119,7 +128,7 @@ if __name__ == "__main__":
         import argparse
         parser = argparse.ArgumentParser(description="OCR and shrink PDFs.")
         parser.add_argument('--input', nargs='+', required=True, help="Input PDF files")
-        parser.add_argument('--action', choices=['ocr', 'shrink', 'both'], default='both', help="Action to perform")
+        parser.add_argument('--action', choices=['ocr', 'shrink', 'both'], default='ocr', help="Action to perform")
         parser.add_argument('--output', choices=['overwrite', 'new'], default='new', help="Output mode")
         args = parser.parse_args()
 
@@ -128,4 +137,3 @@ if __name__ == "__main__":
     else:
         # GUI mode
         gui_mode()
-
