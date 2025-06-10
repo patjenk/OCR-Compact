@@ -2,9 +2,9 @@
 
 import os
 import sys
-import shutil
 import tkinter as tk
 from tkinter import filedialog, messagebox
+from tkinterdnd2 import DND_FILES, TkinterDnD
 import subprocess
 import pytesseract
 import fitz  # PyMuPDF
@@ -12,17 +12,15 @@ from PIL import Image
 
 # === SETTINGS ===
 TESSERACT_CMD = 'tesseract'
-GHOSTSCRIPT_CMD = 'gs'
 TARGET_DPI = 300  # Desired DPI for OCR
 
-# === PDF TOOLS ===
+# === PDF OCR ===
 def ocr_pdf(input_pdf, output_pdf):
     print(f"OCR processing: {input_pdf}")
     doc = fitz.open(input_pdf)
     pdf_writer = fitz.open()
 
-    # Calculate zoom factor to achieve target DPI
-    zoom = TARGET_DPI / 72  # 72 is the default PDF point size
+    zoom = TARGET_DPI / 72  # Calculate zoom factor for target DPI
     mat = fitz.Matrix(zoom, zoom)
 
     for page_num in range(len(doc)):
@@ -40,84 +38,61 @@ def ocr_pdf(input_pdf, output_pdf):
     pdf_writer.save(output_pdf)
     print(f"OCR completed: {output_pdf}")
 
-def shrink_pdf(input_pdf, output_pdf):
-    print(f"Shrinking file: {input_pdf}")
-    gs_command = [
-        GHOSTSCRIPT_CMD,
-        "-sDEVICE=pdfwrite",
-        "-dCompatibilityLevel=1.4",
-        "-dPDFSETTINGS=/ebook",             # Less aggressive than /screen
-        "-dAutoRotatePages=/None",          # Prevent rotation issues
-        "-dColorImageDownsampleType=/Bicubic",
-        "-dColorImageResolution=150",
-        "-dGrayImageDownsampleType=/Bicubic",
-        "-dGrayImageResolution=150",
-        "-dMonoImageDownsampleType=/Subsample",
-        "-dMonoImageResolution=300",
-        "-dNOPAUSE",
-        "-dQUIET",
-        "-dBATCH",
-        f"-sOutputFile={output_pdf}",
-        input_pdf
-    ]
-    subprocess.run(gs_command, check=True)
-    print(f"Shrinking completed: {output_pdf}")
-
 # === CLI MODE ===
-def process_pdfs(pdf_files, action, overwrite):
+def process_pdfs(pdf_files, overwrite):
     for pdf in pdf_files:
         base, ext = os.path.splitext(pdf)
-        temp_pdf = pdf
 
         # Determine output filename
         if overwrite:
-            ocr_output = pdf
-            shrink_output = pdf
+            output_pdf = pdf
         else:
-            ocr_output = f"{base}_ocr.pdf"
-            shrink_output = f"{base}_small.pdf"
+            output_pdf = f"{base}_ocr.pdf"
 
-        if action in ('ocr', 'both'):
-            ocr_pdf(pdf, ocr_output)
-            temp_pdf = ocr_output
-
-        if action in ('shrink', 'both'):
-            shrink_pdf(temp_pdf, shrink_output)
+        ocr_pdf(pdf, output_pdf)
 
 # === GUI MODE ===
 def gui_mode():
+    def drop(event):
+        files = root.tk.splitlist(event.data)
+        for f in files:
+            if f.lower().endswith(".pdf"):
+                file_listbox.insert(tk.END, f)
+
     def process_files():
         files = list(file_listbox.get(0, tk.END))
-        action = action_var.get()
         overwrite = overwrite_var.get()
-        process_pdfs(files, action, overwrite)
-        messagebox.showinfo("Done", "Processing complete!")
+        process_pdfs(files, overwrite)
+        messagebox.showinfo("Done", "OCR processing complete!")
 
     def add_files():
         files = filedialog.askopenfilenames(filetypes=[("PDF Files", "*.pdf")])
         for f in files:
             file_listbox.insert(tk.END, f)
 
-    root = tk.Tk()
-    root.title("PDF Tool")
+    root = TkinterDnD.Tk()
+    root.title("PDF OCR Tool (Drag-and-Drop Ready)")
 
-    # Action toggle (Default to OCR only!)
-    action_var = tk.StringVar(value='ocr')
-    tk.Label(root, text="Select Action:").pack()
-    for text, val in [("OCR", "ocr"), ("Shrink", "shrink"), ("Both", "both")]:
-        tk.Radiobutton(root, text=text, variable=action_var, value=val).pack(anchor='w')
+    # Instructions
+    tk.Label(root, text="Drag and drop PDF files below or use the 'Add Files' button").pack(pady=5)
 
     # Overwrite toggle
     overwrite_var = tk.BooleanVar()
-    tk.Checkbutton(root, text="Overwrite original file", variable=overwrite_var).pack(anchor='w')
+    tk.Checkbutton(root, text="Overwrite original file", variable=overwrite_var).pack(anchor='w', padx=5)
 
     # File list
     file_listbox = tk.Listbox(root, width=80, height=10)
-    file_listbox.pack()
-    tk.Button(root, text="Add PDF files", command=add_files).pack()
+    file_listbox.pack(padx=5, pady=5)
+
+    # Drag-and-drop support
+    file_listbox.drop_target_register(DND_FILES)
+    file_listbox.dnd_bind('<<Drop>>', drop)
+
+    # Add Files button
+    tk.Button(root, text="Add Files", command=add_files).pack(pady=5)
 
     # Process button
-    tk.Button(root, text="Start Processing", command=process_files).pack(pady=10)
+    tk.Button(root, text="Start OCR Processing", command=process_files).pack(pady=10)
 
     root.mainloop()
 
@@ -126,14 +101,14 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         # CLI mode
         import argparse
-        parser = argparse.ArgumentParser(description="OCR and shrink PDFs.")
+        parser = argparse.ArgumentParser(description="OCR PDFs.")
         parser.add_argument('--input', nargs='+', required=True, help="Input PDF files")
-        parser.add_argument('--action', choices=['ocr', 'shrink', 'both'], default='ocr', help="Action to perform")
         parser.add_argument('--output', choices=['overwrite', 'new'], default='new', help="Output mode")
         args = parser.parse_args()
 
         overwrite = (args.output == 'overwrite')
-        process_pdfs(args.input, args.action, overwrite)
+        process_pdfs(args.input, overwrite)
     else:
         # GUI mode
         gui_mode()
+

@@ -1,7 +1,7 @@
 # Dependencies
 
 brew install tesseract ghostscript
-pip install pytesseract Pillow PyMuPDF
+pip install pytesseract Pillow PyMuPDF tkinterdnd2
 
 # Usage
 
