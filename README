@@ -1,7 +1,7 @@
 # Dependencies
 
 brew install tesseract ghostscript
-pip install pytesseract Pillow PyMuPDF tkinterdnd2
+pip install pytesseract Pillow PyMuPDF tkinterdnd2 pyinstaller
 
 # Usage
 
@@ -13,5 +13,8 @@ Command-Line Usage
 GUI Usage
 ---------
 
-./pdf_tool.py
+Create an app with pyinstaller
+
+1. pyinstaller --windowed --onefile ocr_compact.py
+2. cp dist/ocr_compact.app /Applications
 
